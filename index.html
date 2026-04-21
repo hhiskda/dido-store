@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>디도 스토어</title>
+
+<style>
+body {margin:0;background:#0f0f0f;color:white;font-family:Arial;}
+
+/* 공지 */
+#noticeBar{
+  background:#222;
+  padding:8px;
+  text-align:center;
+  color:#ffcc00;
+}
+
+/* 헤더 */
+header {
+  display:flex;
+  justify-content:space-between;
+  padding:12px;
+  background:black;
+  align-items:center;
+}
+
+/* 상품 */
+.products {
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:15px;
+  padding:20px;
+}
+
+.product {
+  background:#1a1a1a;
+  padding:15px;
+  border-radius:10px;
+  text-align:center;
+}
+
+/* 안내 */
+.welcome {
+  display:none;
+  text-align:center;
+  padding:120px 20px;
+  color:#aaa;
+}
+
+/* 버튼 */
+button {
+  width:100%;
+  padding:8px;
+  cursor:pointer;
+  margin-top:5px;
+}
+
+/* 모달 */
+.modal {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.7);
+  justify-content:center;
+  align-items:center;
+}
+
+.box {
+  background:#222;
+  padding:20px;
+  border-radius:10px;
+  width:380px;
+}
+
+/* 관리자 */
+.adminWrap {
+  display:flex;
+  gap:15px;
+}
+
+.leftPanel {width:40%;}
+.rightPanel {width:60%;max-height:400px;overflow:auto;}
+
+.close {
+  float:right;
+  cursor:pointer;
+}
+
+/* 에러 */
+#errorMsg {
+  color:red;
+  font-size:13px;
+}
+
+/* 하단 */
+footer {
+  position:fixed;
+  bottom:10px;
+  width:100%;
+  text-align:center;
+  font-size:12px;
+  color:rgba(255,255,255,0.4);
+}
+</style>
+</head>
+
+<body>
+
+<!-- 📢 공지 -->
+<div id="noticeBar">공지 없음</div>
+
+<header>
+  <div id="leftTop">💰 0</div>
+
+  <div id="authArea">
+    <button onclick="openLogin()">로그인</button>
+    <button onclick="openSignup()">회원가입</button>
+    <button onclick="openAdmin()">관리자</button>
+    <button onclick="copyLink()">링크 복사</button>
+    <button onclick="openCharge()">충전</button>
+  </div>
+</header>
+
+<!-- 비회원 -->
+<div class="welcome" id="welcome">
+  <h2>환영합니다!</h2>
+  <p>오른쪽 상단에서 로그인 / 회원가입을 이용해주세요</p>
+</div>
+
+<!-- 상품 -->
+<div class="products" id="productList"></div>
+
+<!-- 로그인 -->
+<div class="modal" id="loginModal">
+  <div class="box">
+    <span class="close" onclick="closeModal('loginModal')">✖</span>
+    <h3>로그인</h3>
+    <input id="loginId"><br><br>
+    <input id="loginPw" type="password"><br>
+    <div id="errorMsg"></div><br>
+    <button onclick="login()">로그인</button>
+  </div>
+</div>
+
+<!-- 회원가입 -->
+<div class="modal" id="signupModal">
+  <div class="box">
+    <span class="close" onclick="closeModal('signupModal')">✖</span>
+    <h3>회원가입</h3>
+    <input id="signupId"><br><br>
+    <input id="signupPw" type="password"><br><br>
+    <button onclick="signup()">가입</button>
+  </div>
+</div>
+
+<!-- 충전 -->
+<div class="modal" id="chargeModal">
+  <div class="box">
+    <span class="close" onclick="closeModal('chargeModal')">✖</span>
+    <h3>머니 충전</h3>
+    <button onclick="charge(10000)">+10,000</button>
+    <button onclick="charge(50000)">+50,000</button>
+    <button onclick="charge(100000)">+100,000</button>
+  </div>
+</div>
+
+<!-- 관리자 -->
+<div class="modal" id="adminModal">
+  <div class="box">
+
+    <span class="close" onclick="closeModal('adminModal')">✖</span>
+
+    <div id="adminLoginBox">
+      <h3>관리자 로그인</h3>
+      <input id="adminPw"><br><br>
+      <button onclick="checkAdmin()">입장</button>
+    </div>
+
+    <div id="adminPanel" style="display:none;">
+      <div class="adminWrap">
+
+        <div class="leftPanel">
+          <h3>관리자</h3>
+
+          <h4>공지</h4>
+          <input id="noticeInput">
+          <button onclick="setNotice()">등록</button>
+
+          <h4>상품 추가</h4>
+          <input id="pName">
+          <input id="pPrice">
+          <button onclick="addProduct()">추가</button>
+
+          <h4>삭제</h4>
+          <input id="delName">
+          <button onclick="deleteProduct()">삭제</button>
+        </div>
+
+        <div class="rightPanel">
+          <h3>구매 로그</h3>
+          <div id="logList"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+문의 - 디스코드 qkkwn.s
+</footer>
+
+<script>
+
+// ---------------- 데이터 ----------------
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let logs = JSON.parse(localStorage.getItem("logs")) || [];
+let products = JSON.parse(localStorage.getItem("products")) || [
+  {name:"디도 절친", price:30000},
+  {name:"디도 동생", price:10000}
+];
+
+let notice = localStorage.getItem("notice") || "공지 없음";
+let currentUser = null;
+
+// ---------------- 저장 ----------------
+function save(){
+  localStorage.setItem("users", JSON.stringify(users));
+  localStorage.setItem("logs", JSON.stringify(logs));
+  localStorage.setItem("products", JSON.stringify(products));
+}
+
+// ---------------- 공지 ----------------
+function setNotice(){
+  notice = noticeInput.value;
+  localStorage.setItem("notice", notice);
+  noticeBar.innerText = notice;
+  alert("공지 등록");
+}
+
+// ---------------- 회원가입 ----------------
+function signup(){
+  users.push({
+    id:signupId.value,
+    pw:signupPw.value,
+    balance:100000
+  });
+
+  save();
+  alert("회원가입 완료");
+  closeModal("signupModal");
+}
+
+// ---------------- 로그인 ----------------
+function login(){
+
+  let u = users.find(x=>x.id===loginId.value && x.pw===loginPw.value);
+
+  if(!u){
+    errorMsg.innerText="정보가 맞지 않습니다.";
+    return;
+  }
+
+  currentUser = u;
+  showUI();
+}
+
+// ---------------- 로그아웃 ----------------
+function logout(){
+  currentUser = null;
+  showGuest();
+}
+
+// ---------------- UI ----------------
+function showUI(){
+
+  welcome.style.display="none";
+  productList.style.display="grid";
+
+  authArea.innerHTML = `
+    <button onclick="logout()">로그아웃</button>
+    <button onclick="copyLink()">링크 복사</button>
+    <button onclick="openCharge()">충전</button>
+  `;
+
+  render();
+  updateBalance();
+}
+
+// ---------------- 비회원 ----------------
+function showGuest(){
+
+  welcome.style.display="block";
+  productList.style.display="none";
+
+  authArea.innerHTML = `
+    <button onclick="openLogin()">로그인</button>
+    <button onclick="openSignup()">회원가입</button>
+    <button onclick="openAdmin()">관리자</button>
+    <button onclick="copyLink()">링크 복사</button>
+  `;
+
+  leftTop.innerText="💰 0";
+}
+
+// ---------------- 상품 ----------------
+function render(){
+  productList.innerHTML="";
+
+  products.forEach((p,i)=>{
+    productList.innerHTML += `
+      <div class="product">
+        <h3>${p.name}</h3>
+        <p>${p.price}</p>
+        <button onclick="buy(${i})">구매</button>
+      </div>
+    `;
+  });
+}
+
+// ---------------- 구매 ----------------
+function buy(i){
+
+  if(!currentUser) return;
+
+  if(currentUser.balance < products[i].price){
+    alert("잔액 부족");
+    return;
+  }
+
+  currentUser.balance -= products[i].price;
+
+  logs.push({
+    item:products[i].name,
+    price:products[i].price,
+    time:new Date().toLocaleString()
+  });
+
+  save();
+  renderLogs();
+  updateBalance();
+
+  alert("구매 완료");
+}
+
+// ---------------- 관리자 ----------------
+function openAdmin(){
+
+  if(currentUser){
+    alert("비회원만 가능");
+    return;
+  }
+
+  adminModal.style.display="flex";
+}
+
+function checkAdmin(){
+  if(adminPw.value==="5056"){
+    adminLoginBox.style.display="none";
+    adminPanel.style.display="block";
+    renderLogs();
+  }
+}
+
+// ---------------- 충전 ----------------
+function openCharge(){
+  chargeModal.style.display="flex";
+}
+
+function charge(m){
+  if(!currentUser) return alert("로그인 필요");
+
+  currentUser.balance += m;
+  save();
+  updateBalance();
+  alert("충전 완료");
+}
+
+// ---------------- 로그 ----------------
+function renderLogs(){
+  logList.innerHTML="";
+
+  logs.slice().reverse().forEach(l=>{
+    logList.innerHTML += `<p>${l.item} / ${l.price}<br>${l.time}</p><hr>`;
+  });
+}
+
+// ---------------- 잔액 ----------------
+function updateBalance(){
+  leftTop.innerText="💰 "+currentUser.balance;
+}
+
+// ---------------- 링크 복사 ----------------
+function copyLink(){
+  navigator.clipboard.writeText(location.href)
+    .then(()=>alert("복사 완료"));
+}
+
+// ---------------- 모달 ----------------
+function openLogin(){loginModal.style.display="flex";}
+function openSignup(){signupModal.style.display="flex";}
+function closeModal(id){document.getElementById(id).style.display="none";}
+
+// ---------------- 시작 ----------------
+noticeBar.innerText=notice;
+showGuest();
+
+</script>
+
+</body>
+</html>
